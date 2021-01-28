@@ -36,19 +36,29 @@ class MyWebServer(socketserver.BaseRequestHandler):
         # self.request.sendall(bytearray("OK", 'utf-8'))
         if requestParams[1] in ["/", "/index.html", "/deep/index.html"]:
             self.index(requestParams[1])
+        elif requestParams[1] == "/base.css":
+            self.getCSS(requestParams[1])
+        else:
+            self.pageNotFound()
 
-    def serveHTML(self, html):
+    def pageNotFound(self):
+        self.request.sendall(bytearray("HTTP/1.1 404 Not Found\r\n", "utf-8"))
+
+    def serveFile(self, fileText, fileType):
         self.request.sendall(bytearray("HTTP/1.1 200 OK\r\n", "utf-8"))
         self.request.sendall(
-            bytearray("Content-Type: text/html\r\n\n", "utf-8"))
-        self.request.sendall(bytearray(html, "utf-8"))
+            bytearray("Content-Type:" + fileType + "\r\n\n", "utf-8"))
+        self.request.sendall(bytearray(fileText, "utf-8"))
 
     def index(self, directory):
         if directory == "/":
             directory = "/index.html"
-        with open("./www"+directory, "r") as html:
-            htmlString = html.read()
-            self.serveHTML(htmlString)
+        with open("./www"+directory, "r") as fin:
+            fileText = fin.read()
+            if directory[-4:] == "html":
+                self.serveFile(fileText,  "text/html")
+            if directory[-3:] == "css":
+                self.serveFile(fileText, "stylesheet/css")
 
 
 if __name__ == "__main__":
