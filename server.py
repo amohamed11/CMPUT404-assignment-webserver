@@ -1,5 +1,6 @@
 #  coding: utf-8
 import socketserver
+import os
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 #
@@ -32,12 +33,13 @@ class MyWebServer(socketserver.BaseRequestHandler):
     def handle(self):
         self.data = self.request.recv(1024).strip()
         requestParams = self.data.decode().split(' ')
+        path = requestParams[1]
         print("Got a request of: %s\n" % self.data)
-        # self.request.sendall(bytearray("OK", 'utf-8'))
-        if requestParams[1] in ["/", "/index.html", "/deep/index.html"]:
-            self.index(requestParams[1])
-        elif requestParams[1] == "/base.css":
-            self.getCSS(requestParams[1])
+        if requestParams[0] == "GET":
+            if path == "/" or os.path.exists("./www" + path):
+                self.index(path)
+            else:
+                self.pageNotFound()
         else:
             self.pageNotFound()
 
@@ -50,15 +52,24 @@ class MyWebServer(socketserver.BaseRequestHandler):
             bytearray("Content-Type:" + fileType + "\r\n\n", "utf-8"))
         self.request.sendall(bytearray(fileText, "utf-8"))
 
-    def index(self, directory):
-        if directory == "/":
-            directory = "/index.html"
-        with open("./www"+directory, "r") as fin:
+    def getFileContents(self, path):
+        fileText = ""
+        with open("./www"+path, "r") as fin:
             fileText = fin.read()
-            if directory[-4:] == "html":
-                self.serveFile(fileText,  "text/html")
-            if directory[-3:] == "css":
-                self.serveFile(fileText, "stylesheet/css")
+
+        return fileText
+
+    def index(self, path):
+        if path == "/":
+            path = "/index.html"
+
+        fileText = self.getFileContents(path)
+        fileType = "text/html"
+
+        if path[-3:] == "css":
+            fileType = "text/css"
+
+        self.serveFile(fileText, fileType)
 
 
 if __name__ == "__main__":
