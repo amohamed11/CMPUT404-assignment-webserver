@@ -28,48 +28,70 @@ import os
 # try: curl -v -X GET http://127.0.0.1:8080/
 
 
+def getFileContents(path):
+    fileText = ""
+    with open(path, "r") as fin:
+        fileText = fin.read()
+
+    return fileText
+
+
+def findFile(fileName):
+    if os.path.exists("./www"+fileName):
+        return "./www"+fileName
+
+    for root, dirs, files, in os.walk("./www"):
+        if fileName[1:] in dirs or fileName[1:] in files:
+            return root + fileName
+
+    return ""
+
+
 class MyWebServer(socketserver.BaseRequestHandler):
 
     def handle(self):
         self.data = self.request.recv(1024).strip()
         requestParams = self.data.decode().split(' ')
-        path = requestParams[1]
+        requestedFile = requestParams[1]
         print("Got a request of: %s\n" % self.data)
         if requestParams[0] == "GET":
-            if path == "/" or os.path.exists("./www" + path):
+            path = findFile(requestedFile)
+            if path != "":
                 self.index(path)
             else:
                 self.pageNotFound()
         else:
-            self.pageNotFound()
+            self.methodNotAllowed()
 
     def pageNotFound(self):
         self.request.sendall(bytearray("HTTP/1.1 404 Not Found\r\n", "utf-8"))
 
-    def serveFile(self, fileText, fileType):
-        self.request.sendall(bytearray("HTTP/1.1 200 OK\r\n", "utf-8"))
+    def methodNotAllowed(self):
+        self.request.sendall(
+            bytearray("HTTP/1.1 405 Method Not Allowed\r\n", "utf-8"))
+
+    def serveFile(self, fileText, fileType, httpHeader):
+        self.request.sendall(bytearray(httpHeader, "utf-8"))
         self.request.sendall(
             bytearray("Content-Type:" + fileType + "\r\n\n", "utf-8"))
         self.request.sendall(bytearray(fileText, "utf-8"))
 
-    def getFileContents(self, path):
-        fileText = ""
-        with open("./www"+path, "r") as fin:
-            fileText = fin.read()
-
-        return fileText
-
     def index(self, path):
-        if path == "/":
-            path = "/index.html"
+        httpHeader = "HTTP/1.1 200 OK\r\n"
 
-        fileText = self.getFileContents(path)
+        if os.path.isdir(path):
+            if path[-1] != "/":
+                path += "/"
+                httpHeader = "HTTP/1.1 301 Moved Permanently\r\n"
+            path += "index.html"
+
+        fileText = getFileContents(path)
         fileType = "text/html"
 
         if path[-3:] == "css":
             fileType = "text/css"
 
-        self.serveFile(fileText, fileType)
+        self.serveFile(fileText, fileType, httpHeader)
 
 
 if __name__ == "__main__":
