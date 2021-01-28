@@ -44,7 +44,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
         requestedFile = requestParams[1]
         print("Got a request of: %s\n" % self.data)
         if requestParams[0] == "GET":
-            if os.path.exists("./www"+requestedFile):
+            if "../" not in requestedFile and os.path.exists("./www"+requestedFile):
                 self.index("./www"+requestedFile)
             else:
                 self.pageNotFound()
@@ -59,22 +59,29 @@ class MyWebServer(socketserver.BaseRequestHandler):
             bytearray("HTTP/1.1 405 Method Not Allowed\r\n", "utf-8"))
 
     def movedPermantently(self, location):
+        host = self.server.server_address[0]
+        port = self.server.server_address[1]
+        baseUrl = "http://%s:%s" % (host, port)
         self.request.sendall(
-            bytearray("HTTP/1.1 301 Moved Permanently\r\n", "utf-8"))
+            bytearray("HTTP/1.1 301 Moved Permanently\n", "utf-8"))
         self.request.sendall(
-            bytearray("Location:" + self.client_address + location, "utf-8"))
+            bytearray("Location:" + baseUrl + location, "utf-8"))
 
-    def serveFile(self, fileText, fileType):
-        self.request.sendall(bytearray("HTTP/1.1 200 OK\r\n", "utf-8"))
+    def serveFile(self, fileText, fileType, httpHeader):
+        self.request.sendall(bytearray(httpHeader, "utf-8"))
         self.request.sendall(
-            bytearray("Content-Type:" + fileType + "\r\n\n", "utf-8"))
+            bytearray("Content-Type:" + fileType + "\n\n", "utf-8"))
         self.request.sendall(bytearray(fileText, "utf-8"))
 
     def index(self, path):
+        httpHeader = "HTTP/1.1 200 OK\n"
         if os.path.isdir(path):
             if path[-1] != "/":
-                location = path + "/index.html"
+                path += "/"
+                location = path[5:]
                 self.movedPermantently(location)
+                return
+                # httpHeader = "HTTP/1.1 302 Found\n"
             path += "index.html"
 
         fileText = getFileContents(path)
@@ -83,7 +90,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
         if path[-3:] == "css":
             fileType = "text/css"
 
-        self.serveFile(fileText, fileType)
+        self.serveFile(fileText, fileType, httpHeader)
 
 
 if __name__ == "__main__":
