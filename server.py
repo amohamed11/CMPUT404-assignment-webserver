@@ -36,17 +36,6 @@ def getFileContents(path):
     return fileText
 
 
-def findFile(fileName):
-    if os.path.exists("./www"+fileName):
-        return "./www"+fileName
-
-    for root, dirs, files, in os.walk("./www"):
-        if fileName[1:] in dirs or fileName[1:] in files:
-            return root + fileName
-
-    return ""
-
-
 class MyWebServer(socketserver.BaseRequestHandler):
 
     def handle(self):
@@ -55,9 +44,8 @@ class MyWebServer(socketserver.BaseRequestHandler):
         requestedFile = requestParams[1]
         print("Got a request of: %s\n" % self.data)
         if requestParams[0] == "GET":
-            path = findFile(requestedFile)
-            if path != "":
-                self.index(path)
+            if os.path.exists("./www"+requestedFile):
+                self.index("./www"+requestedFile)
             else:
                 self.pageNotFound()
         else:
@@ -70,19 +58,23 @@ class MyWebServer(socketserver.BaseRequestHandler):
         self.request.sendall(
             bytearray("HTTP/1.1 405 Method Not Allowed\r\n", "utf-8"))
 
-    def serveFile(self, fileText, fileType, httpHeader):
-        self.request.sendall(bytearray(httpHeader, "utf-8"))
+    def movedPermantently(self, location):
+        self.request.sendall(
+            bytearray("HTTP/1.1 301 Moved Permanently\r\n", "utf-8"))
+        self.request.sendall(
+            bytearray("Location:" + self.client_address + location, "utf-8"))
+
+    def serveFile(self, fileText, fileType):
+        self.request.sendall(bytearray("HTTP/1.1 200 OK\r\n", "utf-8"))
         self.request.sendall(
             bytearray("Content-Type:" + fileType + "\r\n\n", "utf-8"))
         self.request.sendall(bytearray(fileText, "utf-8"))
 
     def index(self, path):
-        httpHeader = "HTTP/1.1 200 OK\r\n"
-
         if os.path.isdir(path):
             if path[-1] != "/":
-                path += "/"
-                httpHeader = "HTTP/1.1 301 Moved Permanently\r\n"
+                location = path + "/index.html"
+                self.movedPermantently(location)
             path += "index.html"
 
         fileText = getFileContents(path)
@@ -91,7 +83,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
         if path[-3:] == "css":
             fileType = "text/css"
 
-        self.serveFile(fileText, fileType, httpHeader)
+        self.serveFile(fileText, fileType)
 
 
 if __name__ == "__main__":
